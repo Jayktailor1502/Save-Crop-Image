@@ -41,24 +41,14 @@ import static androidx.core.content.FileProvider.getUriForFile;
 public class MainActivity extends AppCompatActivity {
 
     ImageView imageView;
-    Button btnSave;
     public static long fileName;
     OutputStream fos;
+    Uri picUri;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         imageView = findViewById(R.id.photoView);
-        btnSave = findViewById(R.id.btnSave);
-
-        btnSave.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                BitmapDrawable bitmapDrawable = (BitmapDrawable) imageView.getDrawable();
-                Bitmap bitmap = bitmapDrawable.getBitmap();
-                saveToGallery(bitmap);
-            }
-        });
     }
 
     private void saveToGallery(Bitmap bitmap) {
@@ -72,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
             Uri imageURI = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues);
 
             fos = contentResolver.openOutputStream(Objects.requireNonNull(imageURI));
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
             Objects.requireNonNull(fos);
             fos.flush();
             fos.close();
@@ -83,7 +73,6 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(MainActivity.this, "Image Not Saved", Toast.LENGTH_LONG).show();
             Log.e("Hello","Exception - " + e);
         }
-
     }
 
     ActivityResultLauncher<Intent> launchCamera = registerForActivityResult(
@@ -92,13 +81,65 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onActivityResult(ActivityResult result) {
                     if(result.getResultCode() == Activity.RESULT_OK) {
-                        Intent data = result.getData();
-                        assert data != null;
-                        Bitmap photo1 = (Bitmap) data.getExtras().get("data");
-                        imageView.setImageBitmap(photo1);
+                          Intent data = result.getData();
+                          assert data != null;
+                          Bitmap photo1 = (Bitmap) data.getExtras().get("data");
+                          saveToGallery(photo1);
+//                          imageView.setImageBitmap(photo1);
+                          picUri = data.getData();
+                          cropImage(picUri);
                     }
                 }
             });
+
+    ActivityResultLauncher<Intent> launchCrop = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    if(result.getResultCode() == Activity.RESULT_OK) {
+                        Intent data = result.getData();
+                        assert data != null;
+                        Bitmap photo1 = (Bitmap) data.getExtras().get("data");
+//                        saveToGallery(photo1);
+                        imageView.setImageBitmap(photo1);
+                    }
+                }
+            }
+    );
+
+    ActivityResultLauncher<Intent> launchGallery = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    if(result.getResultCode() == Activity.RESULT_OK){
+                        Intent data = result.getData();
+                        Uri selectedImageUri = data.getData();
+                        imageView.setImageURI(selectedImageUri);
+                    }
+                }
+            }
+    );
+
+    private void cropImage(Uri picUri) {
+        Intent intent = new Intent("com.android.camera.action.CROP");
+        intent.setDataAndType(picUri, "image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+
+        intent.putExtra("crop", "true");
+        intent.putExtra("scale","true");
+        intent.putExtra("aspectX", 1);
+        intent.putExtra("aspectY", 1);
+        intent.putExtra("outputX", 200);
+        intent.putExtra("outputY", 200);
+        intent.putExtra("return-data", true);
+//        intent.putExtra(MediaStore.EXTRA_OUTPUT, picUri);
+//        String mImageUri = String.valueOf(picUri);
+//        Uri mCroppedImage = picUri;
+        launchCrop.launch(intent);
+    }
 
     public void takePictureFromCamera(View view) {
         Dexter.withContext(this)
@@ -125,4 +166,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    public void takePictureFromGallery(View view) {
+        Intent pickPhoto = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        launchGallery.launch(pickPhoto);
+    }
 }
