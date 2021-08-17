@@ -10,6 +10,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
@@ -19,7 +20,6 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -29,9 +29,11 @@ import com.karumi.dexter.listener.PermissionDeniedResponse;
 import com.karumi.dexter.listener.PermissionGrantedResponse;
 import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.single.PermissionListener;
+import com.theartofdev.edmodo.cropper.CropImage;
+import com.theartofdev.edmodo.cropper.CropImageView;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.Objects;
 
@@ -56,7 +58,7 @@ public class MainActivity extends AppCompatActivity {
             fileName = System.currentTimeMillis();
             ContentResolver contentResolver = getContentResolver();
             ContentValues contentValues = new ContentValues();
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "IMG"+fileName + ".jpg");
+            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "IMG"+fileName + ".jpeg");
             contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
             contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, DIRECTORY_PICTURES + File.separator + "DemoFolder");
             Uri imageURI = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues);
@@ -85,8 +87,7 @@ public class MainActivity extends AppCompatActivity {
                           assert data != null;
                           Bitmap photo1 = (Bitmap) data.getExtras().get("data");
                           saveToGallery(photo1);
-//                          imageView.setImageBitmap(photo1);
-                          picUri = data.getData();
+                          imageView.setImageBitmap(photo1);
                           cropImage(picUri);
                     }
                 }
@@ -98,11 +99,13 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onActivityResult(ActivityResult result) {
                     if(result.getResultCode() == Activity.RESULT_OK) {
-                        Intent data = result.getData();
-                        assert data != null;
-                        Bitmap photo1 = (Bitmap) data.getExtras().get("data");
-//                        saveToGallery(photo1);
-                        imageView.setImageBitmap(photo1);
+                          Intent data = result.getData();
+                            assert data != null;
+                            Bitmap photo1 = (Bitmap) data.getExtras().get("data");
+                            saveToGallery(photo1);
+                            Uri pic = data.getParcelableExtra("picUri");
+                            imageView.setImageURI(pic);
+                            Log.e("hi","launchcrop");
                     }
                 }
             }
@@ -123,10 +126,11 @@ public class MainActivity extends AppCompatActivity {
     );
 
     private void cropImage(Uri picUri) {
+        Log.e("hi","cropimage");
         Intent intent = new Intent("com.android.camera.action.CROP");
         intent.setDataAndType(picUri, "image/*");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+//        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+//        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 
         intent.putExtra("crop", "true");
         intent.putExtra("scale","true");
@@ -135,11 +139,17 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("outputX", 200);
         intent.putExtra("outputY", 200);
         intent.putExtra("return-data", true);
-//        intent.putExtra(MediaStore.EXTRA_OUTPUT, picUri);
+//        Intent i = new Intent(intent);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, picUri);
 //        String mImageUri = String.valueOf(picUri);
 //        Uri mCroppedImage = picUri;
-        launchCrop.launch(intent);
-    }
+        try {
+            launchCrop.launch(intent);
+            Log.e("log","log");
+        }
+        catch (Exception e){
+            Log.e("Exception","- "+ e);
+    }}
 
     public void takePictureFromCamera(View view) {
         Dexter.withContext(this)
